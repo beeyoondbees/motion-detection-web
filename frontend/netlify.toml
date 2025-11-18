@@ -1,21 +1,24 @@
-# netlify.toml - Frontend Deployment Configuration
-# This file deploys ONLY the React frontend from /frontend folder
+# netlify.toml - Complete Frontend Deployment Configuration
+# Place this file in your PROJECT ROOT (same level as backend/ and frontend/)
 
 [build]
   # Base directory where frontend code is located
   base = "frontend/"
   
-  # Build command for React
+  # Build command - installs dependencies then builds
   command = "npm install && npm run build"
   
-  # Output directory after build
+  # Output directory after build (relative to base)
   publish = "build"
   
-  # Node version
+  # Environment variables
   [build.environment]
     NODE_VERSION = "18"
+    # Add your backend URL here after deploying backend
+    # REACT_APP_API_URL = "https://stelar-herbert-sinlike.ngrok-free.dev/"
+    # REACT_APP_WS_URL = "wss://stelar-herbert-sinlike.ngrok-free.dev/ws/pose/{session_id}"
 
-# Redirect all routes to index.html for React Router
+# Redirect all routes to index.html for React Router (SPA)
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -30,8 +33,14 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Cache static assets
+# Cache static assets for better performance
 [[headers]]
   for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache assets in the build folder
+[[headers]]
+  for = "/build/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
