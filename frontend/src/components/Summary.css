@@ -1,0 +1,460 @@
+/* Summary.css - Matching the new UI design */
+
+.summary-container-new {
+  width: 100vw;
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.summary-content-new {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  min-height: 100vh;
+  padding-bottom: 20px;
+}
+
+/* Header */
+.summary-header-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 1px solid #F0F0F0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.summary-header-new h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.back-arrow-button {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: background 0.2s;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.back-arrow-button:hover {
+  background: #F5F5F5;
+}
+
+.help-button-new {
+  background: #000;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.help-button-new:hover {
+  background: #333;
+}
+
+/* Top Stats Cards */
+.top-stats-new {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 20px;
+}
+
+.stat-card-new {
+  background: #F5F5F5;
+  border-radius: 16px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-icon-new {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.stat-icon-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.stat-value-new {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.time-value {
+  color: #06B6D4;
+}
+
+.kcal-value {
+  color: #EF4444;
+}
+
+.raps-value {
+  color: #F97316;
+}
+
+.stat-label-new {
+  font-size: 14px;
+  color: #666;
+  line-height: 1;
+}
+
+/* Attempt Summary - Full Width Cards */
+.attempts-section-new {
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.attempt-row-new {
+  background: #F5F5F5;
+  border-radius: 16px;
+  padding: 24px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attempt-label-new {
+  font-size: 18px;
+  font-weight: 500;
+  color: #666;
+}
+
+.attempt-value-new {
+  font-size: 32px;
+  font-weight: bold;
+  color: #E91E63;
+}
+
+/* Body Parts Section */
+.body-parts-section-new {
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.body-part-card-new {
+  background: #F5F5F5;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.body-part-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.body-part-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.body-part-icon-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.body-part-name-new {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+}
+
+.body-part-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.circular-progress-new {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.circular-progress-new svg {
+  width: 80px;
+  height: 80px;
+}
+
+.info-icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: none;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.info-icon-button:hover {
+  background: #DC2626;
+}
+
+/* Bottom Button */
+.new-workout-button-new {
+  margin: 20px 20px 0;
+  width: calc(100% - 40px);
+  background: #EF4444;
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 18px;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.new-workout-button-new:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.new-workout-button-new:active {
+  transform: translateY(0);
+}
+
+/* Responsive - Tablet */
+@media (min-width: 600px) and (max-width: 1023px) {
+  .summary-content-new {
+    max-width: 700px;
+  }
+
+  .top-stats-new {
+    padding: 24px;
+    gap: 16px;
+  }
+
+  .attempts-section-new,
+  .body-parts-section-new {
+    padding: 0 24px;
+  }
+}
+
+/* Responsive - Desktop */
+@media (min-width: 1024px) {
+  .summary-content-new {
+    max-width: 800px;
+    margin-top: 20px;
+    border-radius: 20px;
+    min-height: auto;
+  }
+
+  .summary-header-new {
+    border-radius: 20px 20px 0 0;
+  }
+
+  .top-stats-new {
+    padding: 30px;
+    gap: 20px;
+  }
+
+  .stat-card-new {
+    padding: 24px 20px;
+  }
+
+  .attempts-section-new,
+  .body-parts-section-new {
+    padding: 0 30px;
+  }
+
+  .new-workout-button-new {
+    margin: 30px 30px 20px;
+    width: calc(100% - 60px);
+  }
+}
+
+/* Responsive - Small Mobile */
+@media (max-width: 400px) {
+  .summary-header-new {
+    padding: 12px 16px;
+  }
+
+  .summary-header-new h1 {
+    font-size: 18px;
+  }
+
+  .back-arrow-button,
+  .help-button-new {
+    width: 36px;
+    height: 36px;
+  }
+
+  .top-stats-new {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .stat-card-new {
+    padding: 16px 12px;
+  }
+
+  .stat-icon-new {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-icon-img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .stat-value-new {
+    font-size: 18px;
+  }
+
+  .stat-label-new {
+    font-size: 12px;
+  }
+
+  .attempts-section-new,
+  .body-parts-section-new {
+    padding: 0 16px;
+    gap: 10px;
+  }
+
+  .attempt-row-new {
+    padding: 20px;
+  }
+
+  .attempt-label-new {
+    font-size: 16px;
+  }
+
+  .attempt-value-new {
+    font-size: 28px;
+  }
+
+  .body-part-card-new {
+    padding: 16px;
+  }
+
+  .body-part-icon-circle {
+    width: 48px;
+    height: 48px;
+  }
+
+  .body-part-icon-img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .body-part-name-new {
+    font-size: 16px;
+  }
+
+  .circular-progress-new {
+    width: 70px;
+    height: 70px;
+  }
+
+  .circular-progress-new svg {
+    width: 76px;
+    height: 76px;
+  }
+
+  .circular-progress-new text {
+    font-size: 16px !important;
+  }
+
+  .info-icon-button {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .new-workout-button-new {
+    margin: 16px;
+    width: calc(100% - 32px);
+    font-size: 16px;
+    padding: 16px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .stat-value-new {
+    font-size: 16px;
+  }
+
+  .stat-label-new {
+    font-size: 11px;
+  }
+
+  .attempt-value-new {
+    font-size: 24px;
+  }
+
+  .circular-progress-new {
+    width: 64px;
+    height: 64px;
+  }
+
+  .circular-progress-new svg {
+    width: 76px;
+    height: 76px;
+  }
+
+  .circular-progress-new text {
+    font-size: 14px !important;
+  }
+}

@@ -1,0 +1,182 @@
+/* Camera.css - Full screen with no black gap */
+
+.camera-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.camera-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rotate-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgb(228, 0, 43);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.rotate-button:hover {
+  background: rgb(228, 0, 43);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.rotate-button:active {
+  transform: scale(0.95);
+}
+
+.reset-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+/* Loading indicator */
+.camera-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 24px;
+  text-align: center;
+  z-index: 50;
+}
+
+.camera-loading::after {
+  content: '...';
+  animation: dots 1.5s infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+/* Responsive adjustments */
+
+/* Desktop (large screens) */
+@media (min-width: 1024px) {
+  .rotate-button {
+    width: 60px;
+    height: 60px;
+    top: 30px;
+    left: 30px;
+  }
+  
+  .reset-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .rotate-button {
+    width: 55px;
+    height: 55px;
+    top: 25px;
+    left: 25px;
+  }
+  
+  .reset-icon {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Mobile (portrait) */
+@media (max-width: 767px) and (orientation: portrait) {
+  .rotate-button {
+    width: 45px;
+    height: 45px;
+    top: 15px;
+    left: 15px;
+  }
+  
+  .reset-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Mobile (landscape) */
+@media (max-width: 767px) and (orientation: landscape) {
+  .rotate-button {
+    width: 40px;
+    height: 40px;
+    top: 10px;
+    left: 10px;
+  }
+  
+  .reset-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 400px) {
+  .rotate-button {
+    width: 40px;
+    height: 40px;
+    top: 12px;
+    left: 12px;
+  }
+  
+  .reset-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 320px) {
+  .rotate-button {
+    width: 38px;
+    height: 38px;
+    top: 10px;
+    left: 10px;
+  }
+  
+  .reset-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
