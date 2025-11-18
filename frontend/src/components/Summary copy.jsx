@@ -54,6 +54,7 @@ const Summary = ({ data, onBack }) => {
                 className="stat-icon-img"
               />
             </div>
+            
             <div className="stat-value">{formatTime(data.elapsedTime)}</div>
             <div className="stat-label">Time</div>
           </div>
