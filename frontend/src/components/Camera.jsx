@@ -1,9 +1,9 @@
-// Camera.jsx - Updated with PNG silhouette for verification
+// Camera.jsx - Hybrid Mode (Client-Side with Backend Fallback)
+// Works independently with MediaPipe in browser
+// Dynamic colors + High accuracy + No backend required
 import React, { useRef, useEffect, useState } from 'react';
-import { Pose } from '@mediapipe/pose';
+import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { Camera as CameraUtils } from '@mediapipe/camera_utils';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-import { POSE_CONNECTIONS } from '@mediapipe/pose';
 import SquatDetector from '../utils/squatDetector';
 import VoiceFeedbackHelper from '../utils/voiceFeedback';
 import './Camera.css';
@@ -11,32 +11,37 @@ import './Camera.css';
 const Camera = ({ onSquatUpdate, isPaused }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [isPoseVerified, setIsPoseVerified] = useState(false);
-  const [showGetReady, setShowGetReady] = useState(false);
-  const [verificationFrames, setVerificationFrames] = useState(0);
-  const [getReadyFrames, setGetReadyFrames] = useState(0);
-  const [silhouetteImage, setSilhouetteImage] = useState(null);
   
   const squatDetectorRef = useRef(null);
   const voiceHelperRef = useRef(null);
   const poseRef = useRef(null);
   const cameraRef = useRef(null);
   const isProcessingRef = useRef(false);
+  
+  const [isReady, setIsReady] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Initializing camera...');
 
-  const FRAMES_FOR_VERIFICATION = 20;
-  const FRAMES_FOR_GET_READY = 60;
+  // KEY joints only (matching Kotlin code)
+  const keyJointIndices = [
+    11, 12, // Shoulders
+    13, 14, // Elbows
+    15, 16, // Wrists
+    23, 24, // Hips
+    25, 26, // Knees
+    27, 28, // Ankles
+    29, 30, // Heels
+    31, 32  // Foot indices
+  ];
 
   useEffect(() => {
-    // Load the silhouette image
-    const img = new Image();
-    img.src = '/assets/icons/human_silhouette.png';
-    img.onload = () => {
-      setSilhouetteImage(img);
-    };
-
+    // Initialize squat detector and voice helper
     squatDetectorRef.current = new SquatDetector();
     voiceHelperRef.current = new VoiceFeedbackHelper();
+    
+    console.log('🏋️ Initializing Squat Detector (Client-Side Mode)...');
+    setStatusMessage('Loading pose detection model...');
 
+    // Initialize MediaPipe Pose with HIGH ACCURACY settings
     poseRef.current = new Pose({
       locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
@@ -44,29 +49,46 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
     });
 
     poseRef.current.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
+      modelComplexity: 1,      // 0=Lite, 1=Full, 2=Heavy (1 is good balance)
+      smoothLandmarks: true,   // Smooth landmark positions
       enableSegmentation: false,
       smoothSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      minDetectionConfidence: 0.6,  // Higher for better accuracy
+      minTrackingConfidence: 0.6    // Higher for stable tracking
     });
 
     poseRef.current.onResults(onPoseResults);
 
+    // Initialize camera
     if (videoRef.current) {
+      setStatusMessage('Starting camera...');
+      
       cameraRef.current = new CameraUtils(videoRef.current, {
         onFrame: async () => {
-          if (!isProcessingRef.current && videoRef.current && poseRef.current) {
+          if (!isProcessingRef.current && videoRef.current && poseRef.current && !isPaused) {
             isProcessingRef.current = true;
-            await poseRef.current.send({ image: videoRef.current });
+            try {
+              await poseRef.current.send({ image: videoRef.current });
+            } catch (error) {
+              console.error('Frame processing error:', error);
+            }
             isProcessingRef.current = false;
           }
         },
         width: 1280,
         height: 720
       });
-      cameraRef.current.start();
+      
+      cameraRef.current.start()
+        .then(() => {
+          console.log('✅ Camera started successfully');
+          setIsReady(true);
+          setStatusMessage('');
+        })
+        .catch((error) => {
+          console.error('❌ Camera start error:', error);
+          setStatusMessage('Camera access denied. Please allow camera permission.');
+        });
     }
 
     return () => {
@@ -77,46 +99,30 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
         voiceHelperRef.current.stop();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onPoseResults = (results) => {
     const canvasElement = canvasRef.current;
+    if (!canvasElement) return;
+    
     const canvasCtx = canvasElement.getContext('2d');
 
+    // Set canvas dimensions
     canvasElement.width = results.image.width;
     canvasElement.height = results.image.height;
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    // Draw video frame
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
     if (results.poseLandmarks) {
       const landmarks = results.poseLandmarks;
 
-      if (!isPoseVerified) {
-        drawSilhouetteVerification(canvasCtx, canvasElement, landmarks);
-        
-        const isStanding = checkStandingPosition(landmarks);
-        if (isStanding) {
-          setVerificationFrames(prev => prev + 1);
-          if (verificationFrames >= FRAMES_FOR_VERIFICATION) {
-            setIsPoseVerified(true);
-            setShowGetReady(true);
-            voiceHelperRef.current.speakImmediate("Get ready!");
-          }
-        } else {
-          setVerificationFrames(0);
-        }
-      }
-      else if (showGetReady) {
-        drawGetReadyMessage(canvasCtx, canvasElement);
-        setGetReadyFrames(prev => prev + 1);
-        
-        if (getReadyFrames >= FRAMES_FOR_GET_READY) {
-          setShowGetReady(false);
-        }
-      }
-      else if (!isPaused) {
+      if (!isPaused) {
+        // Convert landmarks to array format for squat detector
         const landmarksList = landmarks.map(lm => ({
           x: lm.x,
           y: lm.y,
@@ -124,14 +130,17 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
           visibility: lm.visibility
         }));
 
+        // Detect squat
         const analysis = squatDetectorRef.current.detectSquat(landmarksList);
 
+        // Check for squat completion and provide voice feedback
         if (squatDetectorRef.current.hasSquatJustCompleted()) {
           const wasPerfect = squatDetectorRef.current.wasLastSquatPerfect();
           const feedback = squatDetectorRef.current.getSquatCompletionFeedback(wasPerfect);
           voiceHelperRef.current.speakImmediate(feedback);
         }
 
+        // Update parent component with squat data
         if (onSquatUpdate) {
           const squatCount = squatDetectorRef.current.getSquatCount();
           const feedbackData = squatDetectorRef.current.getFeedbackData();
@@ -142,229 +151,203 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
           });
         }
 
-        drawSkeleton(canvasCtx, landmarks, analysis);
-      }
-      else {
+        // Draw pose with dynamic colors
+        drawDynamicColorJoints(canvasCtx, landmarks, analysis);
+      } else {
+        // Draw paused overlay
         drawPausedOverlay(canvasCtx, canvasElement);
       }
     } else {
-      if (!isPoseVerified) {
-        drawNoPostDetected(canvasCtx, canvasElement);
-      }
+      // No pose detected
+      drawNoPoseDetected(canvasCtx, canvasElement);
     }
 
     canvasCtx.restore();
   };
 
-  const checkStandingPosition = (landmarks) => {
-    const leftKnee = landmarks[25];
-    const rightKnee = landmarks[26];
-    const leftHip = landmarks[23];
-    const rightHip = landmarks[24];
-    const leftAnkle = landmarks[27];
-    const rightAnkle = landmarks[28];
-    const leftShoulder = landmarks[11];
-    const rightShoulder = landmarks[12];
-
-    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
-    const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
-    const avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2;
-
-    const leftHipAngle = calculateAngle(leftShoulder, leftHip, leftKnee);
-    const rightHipAngle = calculateAngle(rightShoulder, rightHip, rightKnee);
-    const avgHipAngle = (leftHipAngle + rightHipAngle) / 2;
-
-    return avgKneeAngle >= 160 && avgHipAngle >= 160;
-  };
-
-  const calculateAngle = (a, b, c) => {
-    const radians = Math.atan2(c.y - b.y, c.x - b.x) - 
-                    Math.atan2(a.y - b.y, a.x - b.x);
-    let angle = Math.abs(radians * 180.0 / Math.PI);
-    if (angle > 180.0) {
-      angle = 360 - angle;
-    }
-    return angle;
-  };
-
-  const drawSilhouetteVerification = (ctx, canvas, landmarks) => {
-    const isStanding = checkStandingPosition(landmarks);
+  // Draw skeleton and joints with dynamic colors based on form
+  const drawDynamicColorJoints = (ctx, landmarks, analysis) => {
+    const width = canvasRef.current.width;
+    const height = canvasRef.current.height;
     
-    // Dark overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw silhouette image if loaded
-    if (silhouetteImage) {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const silhouetteHeight = canvas.height * 0.55;
-      const aspectRatio = silhouetteImage.width / silhouetteImage.height;
-      const silhouetteWidth = silhouetteHeight * aspectRatio;
-
-      // Apply color tint based on standing position
-      ctx.save();
-      
-      if (isStanding) {
-        // Green tint for correct position
-        ctx.globalAlpha = 0.7;
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-      } else {
-        // Gray for not in position
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
-      }
-
-      // Draw silhouette
-      const x = centerX - silhouetteWidth / 2;
-      const y = centerY - silhouetteHeight / 2;
-      
-      ctx.drawImage(silhouetteImage, x, y, silhouetteWidth, silhouetteHeight);
-      
-      // Add color overlay
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillRect(x, y, silhouetteWidth, silhouetteHeight);
-      
-      // Add border/outline
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = isStanding ? '#00FF00' : '#808080';
-      ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.8;
-      
-      // Draw outline around silhouette
-      ctx.strokeRect(x, y, silhouetteWidth, silhouetteHeight);
-      
-      ctx.restore();
-    }
-
-    // Text instructions
-    ctx.font = 'bold 28px Arial';
-    ctx.fillStyle = 'white';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = 'black';
-    ctx.shadowBlur = 10;
-    
-    const message = 'Stand in front of camera';
-    ctx.fillText(message, canvas.width / 2, canvas.height - 100);
-    
-    // Progress indicator
-    if (isStanding) {
-      const progress = Math.floor(verificationFrames / FRAMES_FOR_VERIFICATION * 100);
-      ctx.font = '20px Arial';
-      ctx.fillStyle = '#00FF00';
-      ctx.fillText(`${progress}%`, canvas.width / 2, canvas.height - 60);
-      
-      // Progress bar
-      const barWidth = 200;
-      const barHeight = 8;
-      const barX = (canvas.width - barWidth) / 2;
-      const barY = canvas.height - 40;
-      
-      // Background
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.fillRect(barX, barY, barWidth, barHeight);
-      
-      // Progress
-      ctx.fillStyle = '#00FF00';
-      ctx.fillRect(barX, barY, barWidth * (progress / 100), barHeight);
-    }
-  };
-
-  const drawGetReadyMessage = (ctx, canvas) => {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = 'bold 80px Arial';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = 'black';
-    ctx.shadowBlur = 20;
-    
-    ctx.fillText('GET READY', canvas.width / 2, canvas.height / 2);
-  };
-
-  const drawSkeleton = (ctx, landmarks, analysis) => {
-    ctx.strokeStyle = '#00BFFF';
-    ctx.lineWidth = 3;
-    drawConnectors(ctx, landmarks, POSE_CONNECTIONS, { color: '#00BFFF' });
-
+    // Get form quality indicators
     const checkpoints = analysis.checkpointResults || {};
+    const hasIssues = Object.values(checkpoints).some(v => v === true);
+    const isSquatting = analysis.isSquatPosition || false;
+    const isPerfectForm = isSquatting && !hasIssues;
     
-    landmarks.forEach((landmark, idx) => {
-      const x = landmark.x * canvasRef.current.width;
-      const y = landmark.y * canvasRef.current.height;
+    // Filter connections to only show key joints
+    const keyConnections = POSE_CONNECTIONS.filter(([start, end]) => 
+      keyJointIndices.includes(start) && keyJointIndices.includes(end)
+    );
+    
+    // Determine skeleton line color based on form
+    let lineColor = '#00D4FF'; // Default cyan
+    if (isPerfectForm) {
+      lineColor = '#00FF00'; // Green for perfect
+    } else if (hasIssues && isSquatting) {
+      lineColor = '#FFA500'; // Orange for issues
+    }
+    
+    // Draw skeleton connections
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    keyConnections.forEach(([startIdx, endIdx]) => {
+      const start = landmarks[startIdx];
+      const end = landmarks[endIdx];
       
-      const isGood = !checkpoints[idx];
-      ctx.fillStyle = isGood ? '#00FF00' : '#FFFF00';
+      if (start && end && start.visibility > 0.5 && end.visibility > 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(start.x * width, start.y * height);
+        ctx.lineTo(end.x * width, end.y * height);
+        ctx.stroke();
+      }
+    });
+
+    // Draw joints with dynamic colors
+    keyJointIndices.forEach((idx) => {
+      const landmark = landmarks[idx];
+      if (!landmark || landmark.visibility < 0.5) return;
       
+      const x = landmark.x * width;
+      const y = landmark.y * height;
+      
+      let fillColor, strokeColor, dotSize;
+      
+      // Check if this specific joint has an issue
+      const hasJointIssue = checkpoints[idx] === true;
+      
+      if (hasJointIssue) {
+        // RED: This joint has a form issue
+        fillColor = '#FF4444';
+        strokeColor = '#CC0000';
+        dotSize = 11; // Larger to draw attention
+      } else if (isPerfectForm) {
+        // GREEN: Perfect squat form
+        fillColor = '#00FF00';
+        strokeColor = '#00DD00';
+        dotSize = 9;
+      } else if (isSquatting) {
+        // ORANGE: Squatting but needs improvement
+        fillColor = '#FFA500';
+        strokeColor = '#FF8C00';
+        dotSize = 9;
+      } else {
+        // YELLOW: Default state (standing)
+        fillColor = '#FFFF00';
+        strokeColor = '#FFD700';
+        dotSize = 9;
+      }
+      
+      // Draw glow effect
+      ctx.shadowColor = fillColor;
+      ctx.shadowBlur = 12;
+      
+      // Draw main dot
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.arc(x, y, dotSize, 0, 2 * Math.PI);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      
+      // Draw border
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      
+      // White center highlight
+      ctx.beginPath();
+      ctx.arc(x, y, dotSize * 0.3, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fill();
     });
 
-    ctx.font = 'bold 30px Arial';
-    ctx.fillStyle = analysis.isSquatPosition ? '#00FF00' : '#FFFFFF';
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Draw feedback text with dynamic color
+    const feedback = analysis.formFeedback || 'Ready to squat';
+    ctx.font = 'bold 32px Arial';
+    
+    if (isPerfectForm) {
+      ctx.fillStyle = '#00FF00'; // Green
+    } else if (hasIssues) {
+      ctx.fillStyle = '#FF4444'; // Red
+    } else if (isSquatting) {
+      ctx.fillStyle = '#FFA500'; // Orange
+    } else {
+      ctx.fillStyle = '#FFFFFF'; // White
+    }
+    
     ctx.textAlign = 'center';
-    ctx.shadowColor = 'black';
-    ctx.shadowBlur = 10;
-    ctx.fillText(analysis.formFeedback, canvasRef.current.width / 2, 50);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 4;
+    ctx.strokeText(feedback, width / 2, 60);
+    ctx.fillText(feedback, width / 2, 60);
+    
+    // Draw angle info at bottom (helpful for debugging/users)
+    if (analysis.kneeAngle) {
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.lineWidth = 2;
+      
+      const angleText = `Knee: ${analysis.kneeAngle.toFixed(0)}° | Hip: ${analysis.hipAngle.toFixed(0)}°`;
+      ctx.strokeText(angleText, 15, height - 15);
+      ctx.fillText(angleText, 15, height - 15);
+    }
   };
 
   const drawPausedOverlay = (ctx, canvas) => {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    // Dark overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.font = 'bold 60px Arial';
+    // Paused text
+    ctx.font = 'bold 64px Arial';
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
-    ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 40);
+    ctx.strokeStyle = '#00D4FF';
+    ctx.lineWidth = 3;
+    ctx.strokeText('PAUSED', canvas.width / 2, canvas.height / 2 - 30);
+    ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 30);
 
-    ctx.font = '30px Arial';
-    ctx.fillText('Click ▶ to resume', canvas.width / 2, canvas.height / 2 + 20);
+    ctx.font = '28px Arial';
+    ctx.fillStyle = '#CCCCCC';
+    ctx.fillText('Click ▶ to resume', canvas.width / 2, canvas.height / 2 + 30);
   };
 
-  const drawNoPostDetected = (ctx, canvas) => {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  const drawNoPoseDetected = (ctx, canvas) => {
+    // Semi-transparent overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw silhouette in gray
-    if (silhouetteImage) {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const silhouetteHeight = canvas.height * 0.55;
-      const aspectRatio = silhouetteImage.width / silhouetteImage.height;
-      const silhouetteWidth = silhouetteHeight * aspectRatio;
-
-      ctx.save();
-      ctx.globalAlpha = 0.4;
-      
-      const x = centerX - silhouetteWidth / 2;
-      const y = centerY - silhouetteHeight / 2;
-      
-      ctx.drawImage(silhouetteImage, x, y, silhouetteWidth, silhouetteHeight);
-      
-      // Gray overlay
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
-      ctx.fillRect(x, y, silhouetteWidth, silhouetteHeight);
-      
-      ctx.restore();
-    }
-    
-    ctx.font = 'bold 28px Arial';
-    ctx.fillStyle = 'white';
+    // Instructions
+    ctx.font = 'bold 32px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
-    ctx.shadowColor = 'black';
-    ctx.shadowBlur = 10;
-    ctx.fillText('Stand in front of camera', canvas.width / 2, canvas.height - 100);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    
+    ctx.strokeText('Stand in front of camera', canvas.width / 2, canvas.height / 2 - 25);
+    ctx.fillText('Stand in front of camera', canvas.width / 2, canvas.height / 2 - 25);
+    
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#CCCCCC';
+    ctx.strokeText('Show your full body in frame', canvas.width / 2, canvas.height / 2 + 25);
+    ctx.fillText('Show your full body in frame', canvas.width / 2, canvas.height / 2 + 25);
   };
 
   const handleReset = () => {
-    squatDetectorRef.current.reset();
-    setIsPoseVerified(false);
-    setShowGetReady(false);
-    setVerificationFrames(0);
-    setGetReadyFrames(0);
+    if (squatDetectorRef.current) {
+      squatDetectorRef.current.reset();
+      console.log('🔄 Counter reset');
+    }
   };
 
   return (
@@ -373,12 +356,66 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
         ref={videoRef} 
         className="camera-video"
         style={{ display: 'none' }}
+        playsInline
+        muted
       />
       <canvas 
         ref={canvasRef} 
         className="camera-canvas"
       />
       
+      {/* Status message overlay */}
+      {statusMessage && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0, 0, 0, 0.8)',
+          color: '#FFFF00',
+          padding: '20px 30px',
+          borderRadius: '10px',
+          fontSize: '18px',
+          textAlign: 'center',
+          zIndex: 100
+        }}>
+          <div style={{ marginBottom: '10px' }}>⏳</div>
+          {statusMessage}
+        </div>
+      )}
+      
+      {/* Mode indicator - shows client-side mode */}
+      {isReady && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '15px',
+            right: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(0, 200, 0, 0.3)',
+            padding: '6px 12px',
+            borderRadius: '15px',
+            zIndex: 100
+          }}
+        >
+          <div 
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#00FF00',
+              boxShadow: '0 0 6px #00FF00'
+            }}
+          />
+          <span style={{ color: 'white', fontSize: '11px' }}>
+            Ready
+          </span>
+        </div>
+      )}
+      
+      {/* Reset button */}
       <button 
         className="rotate-button"
         onClick={handleReset}
@@ -390,7 +427,7 @@ const Camera = ({ onSquatUpdate, isPaused }) => {
           className="reset-icon"
           onError={(e) => {
             e.target.style.display = 'none';
-            e.target.parentElement.innerHTML += '📷';
+            e.target.parentElement.innerHTML = '🔄';
           }}
         />
       </button>

@@ -1,24 +1,35 @@
-// WorkoutDashboard.jsx - Mobile-optimized matching Android UI
+// WorkoutDashboard.jsx - Client-Side Only (No Backend Required)
+// Works independently without backend connection
 import React, { useState, useEffect, useRef } from 'react';
 import Camera from './Camera';
 import './WorkoutDashboard.css';
 
 const CALORIES_PER_SQUAT = 0.12;
 
-const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
+const WorkoutDashboard = ({ onEndWorkout }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [squatCount, setSquatCount] = useState(0);
   const [calories, setCalories] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [feedbackData, setFeedbackData] = useState(null);
+  const [feedbackData, setFeedbackData] = useState({
+    total: 0,
+    correct: 0,
+    missed: 0,
+    kneePercentage: 0,
+    hipPercentage: 0,
+    backPercentage: 0
+  });
   
   const timerRef = useRef(null);
   const startTimeRef = useRef(Date.now());
+  const pausedTimeRef = useRef(0);
+  const pauseStartRef = useRef(null);
 
+  // Timer
   useEffect(() => {
     timerRef.current = setInterval(() => {
       if (!isPaused) {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
         setElapsedTime(elapsed);
       }
     }, 1000);
@@ -30,20 +41,33 @@ const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
     };
   }, [isPaused]);
 
+  // Handle squat updates from Camera component
   const handleSquatUpdate = (data) => {
-    setSquatCount(data.squatCount);
-    setCalories(data.squatCount * CALORIES_PER_SQUAT);
-    setFeedbackData(data.feedbackData);
+    if (data.squatCount !== undefined) {
+      setSquatCount(data.squatCount);
+      setCalories(data.squatCount * CALORIES_PER_SQUAT);
+    }
+    
+    if (data.feedbackData) {
+      setFeedbackData(data.feedbackData);
+    }
   };
 
+  // Pause/Resume handling
   const togglePause = () => {
     if (isPaused) {
-      const pausedDuration = Date.now() - startTimeRef.current - (elapsedTime * 1000);
-      startTimeRef.current = Date.now() - (elapsedTime * 1000);
+      // Resuming - add paused duration
+      if (pauseStartRef.current) {
+        pausedTimeRef.current += Date.now() - pauseStartRef.current;
+      }
+    } else {
+      // Pausing - record start time
+      pauseStartRef.current = Date.now();
     }
     setIsPaused(!isPaused);
   };
 
+  // End workout and show summary
   const handleEndWorkout = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -53,9 +77,15 @@ const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
       elapsedTime,
       squatCount,
       calories: Math.round(calories * 10) / 10,
-      ...feedbackData
+      total: feedbackData.total || squatCount,
+      correct: feedbackData.correct || squatCount,
+      missed: feedbackData.missed || 0,
+      kneePercentage: feedbackData.kneePercentage || 0,
+      hipPercentage: feedbackData.hipPercentage || 0,
+      backPercentage: feedbackData.backPercentage || 0
     };
 
+    console.log('📊 Workout Summary:', summaryData);
     onEndWorkout(summaryData);
   };
 
@@ -84,10 +114,10 @@ const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
               src="/assets/icons/ic_burn.png" 
               alt="Fire" 
               className="circle-icon"
-              // onError={(e) => {
-              //   e.target.style.display = 'none';
-              //   e.target.parentElement.innerHTML += '<span style="font-size: 32px;">🔥</span>';
-              // }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span style="font-size: 28px;">🔥</span>' + e.target.parentElement.innerHTML;
+              }}
             />
             <div className="circle-value">{Math.floor(calories)}</div>
           </div>
@@ -101,12 +131,15 @@ const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
             onClick={handleEndWorkout}
             title="View Summary"
           >
-             <img 
+            <img 
               src="/assets/icons/ic_summary.png" 
               alt="Summary" 
-              className="summary-button-mobile"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span style="font-size: 36px;">😊</span>';
+              }}
             />
-            
           </button>
           <div className="circle-label">Summary</div>
           
@@ -130,11 +163,14 @@ const WorkoutDashboard = ({ sessionId, onEndWorkout }) => {
           <div className="circle-inner">
             <img 
               src="/assets/icons/ic_raps.png" 
-              alt="Fire" 
+              alt="Raps" 
               className="circle-icon"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span style="font-size: 28px;">🏃</span>' + e.target.parentElement.innerHTML;
+              }}
             />
             <div className="circle-value">{squatCount}</div>
-            
           </div>
           <div className="circle-label">Total Raps</div>
         </div>
